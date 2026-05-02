@@ -1,15 +1,16 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: AI Web Agent API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: agent
+    description: AI Agent operations
 paths:
   /healthz:
     get:
@@ -24,6 +25,116 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /agent/command:
+    post:
+      operationId: processCommand
+      tags: [agent]
+      summary: Process a Hinglish/English command
+      description: Parse, normalize, and execute an AI agent command
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CommandRequest"
+      responses:
+        "200":
+          description: Command processed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommandResult"
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /agent/outputs:
+    get:
+      operationId: listOutputs
+      tags: [agent]
+      summary: List all generated output files
+      responses:
+        "200":
+          description: List of output files
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OutputList"
+
+  /agent/preview/{filename}:
+    get:
+      operationId: previewOutput
+      tags: [agent]
+      summary: Get HTML content of a generated output file
+      parameters:
+        - name: filename
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: File content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileContent"
+        "404":
+          description: File not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /agent/status:
+    get:
+      operationId: getAgentStatus
+      tags: [agent]
+      summary: Get current agent system status
+      responses:
+        "200":
+          description: Agent status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentStatus"
+
+  /agent/history:
+    get:
+      operationId: getCommandHistory
+      tags: [agent]
+      summary: Get recent command history
+      responses:
+        "200":
+          description: Command history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommandHistory"
+
+  /agent/templates:
+    get:
+      operationId: listTemplates
+      tags: [agent]
+      summary: List available page templates
+      responses:
+        "200":
+          description: Available templates
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemplateList"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +145,220 @@ components:
       required:
         - status
 
+    CommandRequest:
+      type: object
+      properties:
+        command:
+          type: string
+          description: Natural language command in Hinglish or English
+        researchMode:
+          type: boolean
+          description: Whether to enable internet research mode
+          default: false
+      required:
+        - command
+
+    CommandResult:
+      type: object
+      properties:
+        jobId:
+          type: string
+        status:
+          type: string
+          enum: [success, error, processing]
+        normalizedCommand:
+          type: string
+          description: The normalized English interpretation of the command
+        detectedIntent:
+          type: string
+          description: Detected intent (create, clone, research, analyze, etc.)
+        detectedMode:
+          type: string
+          enum: [analyze, research, direct]
+        detectedUrl:
+          type: string
+          nullable: true
+        tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/TaskStep"
+        outputFile:
+          type: string
+          nullable: true
+          description: Generated output filename
+        message:
+          type: string
+      required:
+        - jobId
+        - status
+        - normalizedCommand
+        - detectedIntent
+        - detectedMode
+        - tasks
+        - message
+
+    TaskStep:
+      type: object
+      properties:
+        step:
+          type: integer
+        name:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, done, error, skipped]
+        detail:
+          type: string
+          nullable: true
+      required:
+        - step
+        - name
+        - status
+
+    OutputFile:
+      type: object
+      properties:
+        filename:
+          type: string
+        pageType:
+          type: string
+        createdAt:
+          type: string
+        size:
+          type: integer
+      required:
+        - filename
+        - pageType
+        - createdAt
+        - size
+
+    OutputList:
+      type: object
+      properties:
+        outputs:
+          type: array
+          items:
+            $ref: "#/components/schemas/OutputFile"
+      required:
+        - outputs
+
+    FileContent:
+      type: object
+      properties:
+        filename:
+          type: string
+        content:
+          type: string
+        pageType:
+          type: string
+      required:
+        - filename
+        - content
+        - pageType
+
+    AgentStatus:
+      type: object
+      properties:
+        ready:
+          type: boolean
+        researchMode:
+          type: boolean
+        puppeteerAvailable:
+          type: boolean
+        totalOutputs:
+          type: integer
+        totalCommandsProcessed:
+          type: integer
+        systemInfo:
+          type: object
+          properties:
+            platform:
+              type: string
+            nodeVersion:
+              type: string
+      required:
+        - ready
+        - researchMode
+        - puppeteerAvailable
+        - totalOutputs
+        - totalCommandsProcessed
+
+    CommandHistoryItem:
+      type: object
+      properties:
+        id:
+          type: string
+        command:
+          type: string
+        normalizedCommand:
+          type: string
+        intent:
+          type: string
+        mode:
+          type: string
+        outputFile:
+          type: string
+          nullable: true
+        status:
+          type: string
+        timestamp:
+          type: string
+      required:
+        - id
+        - command
+        - normalizedCommand
+        - intent
+        - mode
+        - status
+        - timestamp
+
+    CommandHistory:
+      type: object
+      properties:
+        history:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommandHistoryItem"
+      required:
+        - history
+
+    Template:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        pageType:
+          type: string
+        preview:
+          type: string
+      required:
+        - id
+        - name
+        - description
+        - pageType
+        - preview
+
+    TemplateList:
+      type: object
+      properties:
+        templates:
+          type: array
+          items:
+            $ref: "#/components/schemas/Template"
+      required:
+        - templates
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: string
+          nullable: true
+      required:
+        - error
