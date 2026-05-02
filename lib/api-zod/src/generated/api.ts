@@ -29,6 +29,10 @@ export const ProcessCommandBody = zod.object({
     .boolean()
     .default(processCommandBodyResearchModeDefault)
     .describe("Whether to enable internet research mode"),
+  sessionId: zod
+    .string()
+    .nullish()
+    .describe("Session ID for conversation continuity"),
 });
 
 export const ProcessCommandResponse = zod.object({
@@ -51,7 +55,218 @@ export const ProcessCommandResponse = zod.object({
     }),
   ),
   outputFile: zod.string().nullish().describe("Generated output filename"),
+  projectSlug: zod
+    .string()
+    .nullish()
+    .describe("Packaged project slug (used for ZIP download)"),
+  downloadUrl: zod
+    .string()
+    .nullish()
+    .describe("URL to download the full runnable project as a ZIP"),
   message: zod.string(),
+  validationReport: zod
+    .object({
+      passed: zod.boolean(),
+      score: zod.number().describe("0–100 quality score"),
+      grade: zod.enum(["A", "B", "C", "D", "F"]),
+      checks: zod.array(
+        zod.object({
+          id: zod.string(),
+          category: zod.enum([
+            "structure",
+            "css",
+            "js",
+            "accessibility",
+            "responsiveness",
+            "design-system",
+          ]),
+          name: zod.string(),
+          status: zod.enum(["pass", "fail", "warn"]),
+          detail: zod.string(),
+          weight: zod.number(),
+        }),
+      ),
+      errors: zod.array(zod.string()),
+      warnings: zod.array(zod.string()),
+      suggestions: zod.array(zod.string()),
+      canAutoFix: zod.boolean(),
+    })
+    .nullish(),
+  confidenceResult: zod
+    .object({
+      overall: zod.number().describe("0–100 weighted confidence score"),
+      grade: zod.enum(["A", "B", "C", "D", "F"]),
+      passesThreshold: zod.boolean(),
+      threshold: zod.number(),
+      dimensions: zod.array(
+        zod.object({
+          name: zod.string(),
+          score: zod.number(),
+          weight: zod.number(),
+          rationale: zod.string(),
+        }),
+      ),
+      recommendation: zod.enum(["use", "regenerate", "fallback"]),
+      regenerationHint: zod.string().nullish(),
+    })
+    .nullish(),
+  regenerated: zod
+    .boolean()
+    .describe(
+      "Whether the output was regenerated after a low confidence score",
+    ),
+  sessionId: zod.string().describe("Session ID for conversation continuity"),
+  conversationIntent: zod
+    .enum(["continue", "new_task", "explicit_reset", "follow_up"])
+    .describe("Detected intent of this turn relative to the session"),
+  agentMessage: zod
+    .string()
+    .describe("Human-readable agent response for the chat UI"),
+  followUpQuestions: zod
+    .array(zod.string())
+    .describe("Suggested follow-up questions for the user"),
+  session: zod.object({
+    sessionId: zod.string(),
+    startedAt: zod.string(),
+    lastActivityAt: zod.string(),
+    currentTask: zod.string().nullish(),
+    taskState: zod.enum([
+      "idle",
+      "collecting",
+      "generating",
+      "awaiting_feedback",
+      "refining",
+      "complete",
+    ]),
+    collectedConditions: zod.object({
+      pageType: zod.string().nullish(),
+      colorScheme: zod.enum(["light", "dark", "auto"]).nullish(),
+      uiStyle: zod.array(zod.string()).optional(),
+      hasValidation: zod.boolean().nullish(),
+      hasNavbar: zod.boolean().nullish(),
+      hasFooter: zod.boolean().nullish(),
+      customNotes: zod.array(zod.string()).optional(),
+      mentionedFeatures: zod.array(zod.string()).optional(),
+      lastUrl: zod.string().nullish(),
+    }),
+    turnCount: zod.number(),
+    generatedOutputs: zod.array(zod.string()),
+    followUpQuestions: zod.array(zod.string()),
+    recentTurns: zod.array(
+      zod.object({
+        id: zod.string(),
+        role: zod.enum(["user", "agent"]),
+        content: zod.string(),
+        timestamp: zod.string(),
+        outputFile: zod.string().nullish(),
+        jobId: zod.string().nullish(),
+        validationScore: zod.number().nullish(),
+        confidenceScore: zod.number().nullish(),
+        regenerated: zod.boolean().optional(),
+        followUpQuestions: zod.array(zod.string()).optional(),
+      }),
+    ),
+  }),
+  responseMode: zod
+    .enum(["generate", "clarify", "acknowledge"])
+    .describe(
+      "generate = full output produced, clarify = asking user a question, acknowledge = confirming before generating",
+    ),
+  clarificationQuestion: zod
+    .string()
+    .nullish()
+    .describe("The single clarification question to ask the user"),
+  quickReplies: zod
+    .array(zod.string())
+    .describe("Tap-to-send quick reply chip suggestions"),
+  acknowledgment: zod
+    .string()
+    .nullish()
+    .describe("Natural acknowledgment opener shown before generating"),
+  webResearchUsed: zod
+    .boolean()
+    .optional()
+    .describe("Whether live web sources were fetched for this response"),
+  webSources: zod
+    .array(
+      zod.object({
+        url: zod.string(),
+        domain: zod.string(),
+        title: zod.string(),
+        relevanceScore: zod.number(),
+        qualityScore: zod.number(),
+        headings: zod.array(zod.string()).optional(),
+        fetchedAt: zod.string().optional(),
+      }),
+    )
+    .optional()
+    .describe("Web sources consulted during research"),
+  webCrossCheckedFacts: zod
+    .array(zod.string())
+    .optional()
+    .describe("Facts confirmed by 2+ independent web sources"),
+  webAdaptedPatterns: zod
+    .array(zod.string())
+    .optional()
+    .describe(
+      "Project-aligned patterns adapted from web sources (never raw copy-paste)",
+    ),
+  chatOperation: zod
+    .string()
+    .nullish()
+    .describe(
+      "Chat management operation performed: reset_chat | delete_last | delete_message | new_session",
+    ),
+  userTurnId: zod
+    .string()
+    .nullish()
+    .describe(
+      "Server-side session turn ID for the user message in this exchange",
+    ),
+  agentTurnId: zod
+    .string()
+    .nullish()
+    .describe(
+      "Server-side session turn ID for the agent message in this exchange",
+    ),
+});
+
+/**
+ * Accepts a multipart image upload, analyzes layout with AI vision, and generates a complete multi-file project
+ * @summary Convert an uploaded image to a structured webpage
+ */
+export const ImageToPageBody = zod.object({
+  image: zod
+    .instanceof(File)
+    .describe("Image file (PNG, JPG, WebP, GIF — max 10 MB)"),
+  description: zod
+    .string()
+    .optional()
+    .describe("Optional description to guide generation"),
+  sessionId: zod.string().nullish(),
+  pageType: zod
+    .string()
+    .optional()
+    .describe("Override page type (used after clarification)"),
+});
+
+export const ImageToPageResponse = zod.object({
+  responseMode: zod.enum(["generate", "clarify"]),
+  agentMessage: zod.string().nullish(),
+  clarificationQuestion: zod.string().nullish(),
+  quickReplies: zod.array(zod.string()).optional(),
+  sessionId: zod.string().nullish(),
+  imageUploadId: zod.string().nullish(),
+  projectSlug: zod.string().nullish(),
+  downloadUrl: zod.string().nullish(),
+  pageType: zod.string().nullish(),
+  colorScheme: zod.string().nullish(),
+  confidence: zod.number().nullish(),
+  detectedElements: zod.array(zod.string()).optional(),
+  description: zod.string().nullish(),
+  title: zod.string().nullish(),
+  fileCount: zod.number().nullish(),
+  files: zod.array(zod.string()).optional(),
 });
 
 /**
@@ -64,6 +279,14 @@ export const ListOutputsResponse = zod.object({
       pageType: zod.string(),
       createdAt: zod.string(),
       size: zod.number(),
+      projectSlug: zod
+        .string()
+        .nullish()
+        .describe("Packaged project slug for downloading"),
+      downloadUrl: zod
+        .string()
+        .nullish()
+        .describe("URL to download the full project ZIP"),
     }),
   ),
 });
@@ -79,6 +302,15 @@ export const PreviewOutputResponse = zod.object({
   filename: zod.string(),
   content: zod.string(),
   pageType: zod.string(),
+});
+
+/**
+ * @summary Download a generated project as a ZIP file
+ */
+export const DownloadProjectParams = zod.object({
+  zipFilename: zod.coerce
+    .string()
+    .describe("ZIP filename (e.g. login-project-1234567890.zip)"),
 });
 
 /**
@@ -117,6 +349,106 @@ export const GetCommandHistoryResponse = zod.object({
 });
 
 /**
+ * @summary Get conversation session state
+ */
+export const GetSessionParams = zod.object({
+  sessionId: zod.coerce.string(),
+});
+
+export const GetSessionResponse = zod.object({
+  sessionId: zod.string(),
+  startedAt: zod.string(),
+  lastActivityAt: zod.string(),
+  currentTask: zod.string().nullish(),
+  taskState: zod.enum([
+    "idle",
+    "collecting",
+    "generating",
+    "awaiting_feedback",
+    "refining",
+    "complete",
+  ]),
+  collectedConditions: zod.object({
+    pageType: zod.string().nullish(),
+    colorScheme: zod.enum(["light", "dark", "auto"]).nullish(),
+    uiStyle: zod.array(zod.string()).optional(),
+    hasValidation: zod.boolean().nullish(),
+    hasNavbar: zod.boolean().nullish(),
+    hasFooter: zod.boolean().nullish(),
+    customNotes: zod.array(zod.string()).optional(),
+    mentionedFeatures: zod.array(zod.string()).optional(),
+    lastUrl: zod.string().nullish(),
+  }),
+  turnCount: zod.number(),
+  generatedOutputs: zod.array(zod.string()),
+  followUpQuestions: zod.array(zod.string()),
+  recentTurns: zod.array(
+    zod.object({
+      id: zod.string(),
+      role: zod.enum(["user", "agent"]),
+      content: zod.string(),
+      timestamp: zod.string(),
+      outputFile: zod.string().nullish(),
+      jobId: zod.string().nullish(),
+      validationScore: zod.number().nullish(),
+      confidenceScore: zod.number().nullish(),
+      regenerated: zod.boolean().optional(),
+      followUpQuestions: zod.array(zod.string()).optional(),
+    }),
+  ),
+});
+
+/**
+ * @summary Reset a conversation session to start a new task
+ */
+export const ResetSessionParams = zod.object({
+  sessionId: zod.coerce.string(),
+});
+
+export const ResetSessionResponse = zod.object({
+  sessionId: zod.string(),
+  startedAt: zod.string(),
+  lastActivityAt: zod.string(),
+  currentTask: zod.string().nullish(),
+  taskState: zod.enum([
+    "idle",
+    "collecting",
+    "generating",
+    "awaiting_feedback",
+    "refining",
+    "complete",
+  ]),
+  collectedConditions: zod.object({
+    pageType: zod.string().nullish(),
+    colorScheme: zod.enum(["light", "dark", "auto"]).nullish(),
+    uiStyle: zod.array(zod.string()).optional(),
+    hasValidation: zod.boolean().nullish(),
+    hasNavbar: zod.boolean().nullish(),
+    hasFooter: zod.boolean().nullish(),
+    customNotes: zod.array(zod.string()).optional(),
+    mentionedFeatures: zod.array(zod.string()).optional(),
+    lastUrl: zod.string().nullish(),
+  }),
+  turnCount: zod.number(),
+  generatedOutputs: zod.array(zod.string()),
+  followUpQuestions: zod.array(zod.string()),
+  recentTurns: zod.array(
+    zod.object({
+      id: zod.string(),
+      role: zod.enum(["user", "agent"]),
+      content: zod.string(),
+      timestamp: zod.string(),
+      outputFile: zod.string().nullish(),
+      jobId: zod.string().nullish(),
+      validationScore: zod.number().nullish(),
+      confidenceScore: zod.number().nullish(),
+      regenerated: zod.boolean().optional(),
+      followUpQuestions: zod.array(zod.string()).optional(),
+    }),
+  ),
+});
+
+/**
  * @summary List available page templates
  */
 export const ListTemplatesResponse = zod.object({
@@ -129,4 +461,120 @@ export const ListTemplatesResponse = zod.object({
       preview: zod.string(),
     }),
   ),
+});
+
+/**
+ * @summary Start a full-page extraction job
+ */
+export const startExtractionBodyWaitForNetworkIdleDefault = true;
+export const startExtractionBodyExecuteJsDefault = true;
+
+export const StartExtractionBody = zod.object({
+  url: zod.string().describe("The URL to extract"),
+  waitForNetworkIdle: zod
+    .boolean()
+    .default(startExtractionBodyWaitForNetworkIdleDefault)
+    .describe("Wait for network to be idle before extracting"),
+  executeJs: zod
+    .boolean()
+    .default(startExtractionBodyExecuteJsDefault)
+    .describe("Allow JavaScript execution for full render"),
+});
+
+export const StartExtractionResponse = zod.object({
+  jobId: zod.string(),
+  url: zod.string(),
+  status: zod.enum(["running", "success", "partial", "error"]),
+  message: zod.string(),
+  timestamp: zod.string(),
+  previewPath: zod
+    .string()
+    .nullish()
+    .describe("URL path to preview the extracted page"),
+  outputDir: zod.string().nullish(),
+  assets: zod.array(
+    zod.object({
+      originalUrl: zod.string(),
+      localPath: zod.string(),
+      type: zod.enum(["css", "js", "image", "font", "other"]),
+      sizeBytes: zod.number(),
+      downloaded: zod.boolean(),
+    }),
+  ),
+  stats: zod.object({
+    totalAssets: zod.number(),
+    downloaded: zod.number(),
+    failed: zod.number(),
+    htmlSize: zod.number(),
+  }),
+});
+
+/**
+ * @summary List all past extraction jobs
+ */
+export const ListExtractionsResponse = zod.object({
+  extractions: zod.array(
+    zod.object({
+      jobId: zod.string(),
+      url: zod.string(),
+      status: zod.enum(["running", "success", "partial", "error"]),
+      message: zod.string(),
+      timestamp: zod.string(),
+      previewPath: zod
+        .string()
+        .nullish()
+        .describe("URL path to preview the extracted page"),
+      outputDir: zod.string().nullish(),
+      assets: zod.array(
+        zod.object({
+          originalUrl: zod.string(),
+          localPath: zod.string(),
+          type: zod.enum(["css", "js", "image", "font", "other"]),
+          sizeBytes: zod.number(),
+          downloaded: zod.boolean(),
+        }),
+      ),
+      stats: zod.object({
+        totalAssets: zod.number(),
+        downloaded: zod.number(),
+        failed: zod.number(),
+        htmlSize: zod.number(),
+      }),
+    }),
+  ),
+});
+
+/**
+ * @summary Get a single extraction job by ID
+ */
+export const GetExtractionParams = zod.object({
+  jobId: zod.coerce.string(),
+});
+
+export const GetExtractionResponse = zod.object({
+  jobId: zod.string(),
+  url: zod.string(),
+  status: zod.enum(["running", "success", "partial", "error"]),
+  message: zod.string(),
+  timestamp: zod.string(),
+  previewPath: zod
+    .string()
+    .nullish()
+    .describe("URL path to preview the extracted page"),
+  outputDir: zod.string().nullish(),
+  assets: zod.array(
+    zod.object({
+      originalUrl: zod.string(),
+      localPath: zod.string(),
+      type: zod.enum(["css", "js", "image", "font", "other"]),
+      sizeBytes: zod.number(),
+      downloaded: zod.boolean(),
+    }),
+  ),
+  stats: zod.object({
+    totalAssets: zod.number(),
+    downloaded: zod.number(),
+    failed: zod.number(),
+    htmlSize: zod.number(),
+  }),
 });

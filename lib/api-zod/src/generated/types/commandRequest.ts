@@ -11,4 +11,6 @@ export interface CommandRequest {
   command: string;
   /** Whether to enable internet research mode */
   researchMode?: boolean;
+  /** Session ID for conversation continuity */
+  sessionId?: string | null;
 }

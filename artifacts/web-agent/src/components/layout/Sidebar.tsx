@@ -6,8 +6,10 @@ import {
   Eye, 
   LayoutTemplate, 
   History as HistoryIcon,
+  ScanLine,
   Activity,
-  Server
+  Server,
+  ImageIcon,
 } from "lucide-react";
 import { useGetAgentStatus, getGetAgentStatusQueryKey } from "@workspace/api-client-react";
 
@@ -22,6 +24,8 @@ export default function Sidebar() {
 
   const links = [
     { href: "/", label: "Console", icon: TerminalSquare },
+    { href: "/image-to-page", label: "Image → Page", icon: ImageIcon },
+    { href: "/extract", label: "Extract", icon: ScanLine },
     { href: "/outputs", label: "Outputs", icon: Files },
     { href: "/preview", label: "Preview", icon: Eye },
     { href: "/templates", label: "Templates", icon: LayoutTemplate },

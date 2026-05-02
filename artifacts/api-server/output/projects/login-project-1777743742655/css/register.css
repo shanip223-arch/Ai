@@ -1,0 +1,51 @@
+/* Register Page — Layout & Specific Styles */
+@import url('variables.css');
+
+.register-root {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-5);
+  background: var(--color-bg);
+}
+
+.register-card {
+  width: 100%;
+  max-width: 480px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  padding: var(--spacing-7) var(--spacing-6);
+  box-shadow: var(--shadow-lg);
+  animation: fadeIn 0.4s ease;
+}
+
+.register-card h1 { font-size: 1.75rem; font-weight: 800; text-align: center; margin-bottom: 4px; }
+.register-subtitle { text-align: center; color: var(--color-text-muted); font-size: 0.9rem; margin-bottom: var(--spacing-6); }
+
+.name-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-3); }
+
+.password-strength {
+  height: 4px;
+  border-radius: 2px;
+  margin-top: 6px;
+  background: var(--color-border);
+  overflow: hidden;
+}
+.password-strength-bar {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease, background 0.3s ease;
+  width: 0%;
+}
+
+.terms-check { display: flex; align-items: flex-start; gap: var(--spacing-3); margin-bottom: var(--spacing-5); }
+.terms-check input[type="checkbox"] { width: auto; margin-top: 2px; }
+.terms-check label { font-size: 0.875rem; color: var(--color-text-muted); line-height: 1.5; cursor: pointer; }
+
+.register-footer { text-align: center; margin-top: var(--spacing-4); font-size: 0.875rem; color: var(--color-text-muted); }
+
+@media (max-width: 480px) {
+  .name-row { grid-template-columns: 1fr; }
+}

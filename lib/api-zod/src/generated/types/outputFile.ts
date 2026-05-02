@@ -11,4 +11,8 @@ export interface OutputFile {
   pageType: string;
   createdAt: string;
   size: number;
+  /** Packaged project slug for downloading */
+  projectSlug?: string | null;
+  /** URL to download the full project ZIP */
+  downloadUrl?: string | null;
 }

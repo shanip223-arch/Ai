@@ -14,6 +14,167 @@ export interface CommandRequest {
   command: string;
   /** Whether to enable internet research mode */
   researchMode?: boolean;
+  /** Session ID for conversation continuity */
+  sessionId?: string | null;
+}
+
+export type ConversationTurnRole =
+  (typeof ConversationTurnRole)[keyof typeof ConversationTurnRole];
+
+export const ConversationTurnRole = {
+  user: "user",
+  agent: "agent",
+} as const;
+
+export interface ConversationTurn {
+  id: string;
+  role: ConversationTurnRole;
+  content: string;
+  timestamp: string;
+  outputFile?: string | null;
+  jobId?: string | null;
+  validationScore?: number | null;
+  confidenceScore?: number | null;
+  regenerated?: boolean;
+  followUpQuestions?: string[];
+}
+
+export type CollectedConditionsColorScheme =
+  | (typeof CollectedConditionsColorScheme)[keyof typeof CollectedConditionsColorScheme]
+  | null;
+
+export const CollectedConditionsColorScheme = {
+  light: "light",
+  dark: "dark",
+  auto: "auto",
+} as const;
+
+export interface CollectedConditions {
+  pageType?: string | null;
+  colorScheme?: CollectedConditionsColorScheme;
+  uiStyle?: string[];
+  hasValidation?: boolean | null;
+  hasNavbar?: boolean | null;
+  hasFooter?: boolean | null;
+  customNotes?: string[];
+  mentionedFeatures?: string[];
+  lastUrl?: string | null;
+}
+
+export type ConversationSessionTaskState =
+  (typeof ConversationSessionTaskState)[keyof typeof ConversationSessionTaskState];
+
+export const ConversationSessionTaskState = {
+  idle: "idle",
+  collecting: "collecting",
+  generating: "generating",
+  awaiting_feedback: "awaiting_feedback",
+  refining: "refining",
+  complete: "complete",
+} as const;
+
+export interface ConversationSession {
+  sessionId: string;
+  startedAt: string;
+  lastActivityAt: string;
+  currentTask?: string | null;
+  taskState: ConversationSessionTaskState;
+  collectedConditions: CollectedConditions;
+  turnCount: number;
+  generatedOutputs: string[];
+  followUpQuestions: string[];
+  recentTurns: ConversationTurn[];
+}
+
+export type ValidationCheckCategory =
+  (typeof ValidationCheckCategory)[keyof typeof ValidationCheckCategory];
+
+export const ValidationCheckCategory = {
+  structure: "structure",
+  css: "css",
+  js: "js",
+  accessibility: "accessibility",
+  responsiveness: "responsiveness",
+  "design-system": "design-system",
+} as const;
+
+export type ValidationCheckStatus =
+  (typeof ValidationCheckStatus)[keyof typeof ValidationCheckStatus];
+
+export const ValidationCheckStatus = {
+  pass: "pass",
+  fail: "fail",
+  warn: "warn",
+} as const;
+
+export interface ValidationCheck {
+  id: string;
+  category: ValidationCheckCategory;
+  name: string;
+  status: ValidationCheckStatus;
+  detail: string;
+  weight: number;
+}
+
+export type ValidationReportGrade =
+  (typeof ValidationReportGrade)[keyof typeof ValidationReportGrade];
+
+export const ValidationReportGrade = {
+  A: "A",
+  B: "B",
+  C: "C",
+  D: "D",
+  F: "F",
+} as const;
+
+export interface ValidationReport {
+  passed: boolean;
+  /** 0–100 quality score */
+  score: number;
+  grade: ValidationReportGrade;
+  checks: ValidationCheck[];
+  errors: string[];
+  warnings: string[];
+  suggestions: string[];
+  canAutoFix: boolean;
+}
+
+export interface ConfidenceDimension {
+  name: string;
+  score: number;
+  weight: number;
+  rationale: string;
+}
+
+export type ConfidenceResultGrade =
+  (typeof ConfidenceResultGrade)[keyof typeof ConfidenceResultGrade];
+
+export const ConfidenceResultGrade = {
+  A: "A",
+  B: "B",
+  C: "C",
+  D: "D",
+  F: "F",
+} as const;
+
+export type ConfidenceResultRecommendation =
+  (typeof ConfidenceResultRecommendation)[keyof typeof ConfidenceResultRecommendation];
+
+export const ConfidenceResultRecommendation = {
+  use: "use",
+  regenerate: "regenerate",
+  fallback: "fallback",
+} as const;
+
+export interface ConfidenceResult {
+  /** 0–100 weighted confidence score */
+  overall: number;
+  grade: ConfidenceResultGrade;
+  passesThreshold: boolean;
+  threshold: number;
+  dimensions: ConfidenceDimension[];
+  recommendation: ConfidenceResultRecommendation;
+  regenerationHint?: string | null;
 }
 
 export type CommandResultStatus =
@@ -34,6 +195,31 @@ export const CommandResultDetectedMode = {
   direct: "direct",
 } as const;
 
+/**
+ * Detected intent of this turn relative to the session
+ */
+export type CommandResultConversationIntent =
+  (typeof CommandResultConversationIntent)[keyof typeof CommandResultConversationIntent];
+
+export const CommandResultConversationIntent = {
+  continue: "continue",
+  new_task: "new_task",
+  explicit_reset: "explicit_reset",
+  follow_up: "follow_up",
+} as const;
+
+/**
+ * generate = full output produced, clarify = asking user a question, acknowledge = confirming before generating
+ */
+export type CommandResultResponseMode =
+  (typeof CommandResultResponseMode)[keyof typeof CommandResultResponseMode];
+
+export const CommandResultResponseMode = {
+  generate: "generate",
+  clarify: "clarify",
+  acknowledge: "acknowledge",
+} as const;
+
 export type TaskStepStatus =
   (typeof TaskStepStatus)[keyof typeof TaskStepStatus];
 
@@ -52,6 +238,16 @@ export interface TaskStep {
   detail?: string | null;
 }
 
+export interface WebSourceResult {
+  url: string;
+  domain: string;
+  title: string;
+  relevanceScore: number;
+  qualityScore: number;
+  headings?: string[];
+  fetchedAt?: string;
+}
+
 export interface CommandResult {
   jobId: string;
   status: CommandResultStatus;
@@ -64,7 +260,46 @@ export interface CommandResult {
   tasks: TaskStep[];
   /** Generated output filename */
   outputFile?: string | null;
+  /** Packaged project slug (used for ZIP download) */
+  projectSlug?: string | null;
+  /** URL to download the full runnable project as a ZIP */
+  downloadUrl?: string | null;
   message: string;
+  validationReport?: ValidationReport | null;
+  confidenceResult?: ConfidenceResult | null;
+  /** Whether the output was regenerated after a low confidence score */
+  regenerated: boolean;
+  /** Session ID for conversation continuity */
+  sessionId: string;
+  /** Detected intent of this turn relative to the session */
+  conversationIntent: CommandResultConversationIntent;
+  /** Human-readable agent response for the chat UI */
+  agentMessage: string;
+  /** Suggested follow-up questions for the user */
+  followUpQuestions: string[];
+  session: ConversationSession;
+  /** generate = full output produced, clarify = asking user a question, acknowledge = confirming before generating */
+  responseMode: CommandResultResponseMode;
+  /** The single clarification question to ask the user */
+  clarificationQuestion?: string | null;
+  /** Tap-to-send quick reply chip suggestions */
+  quickReplies: string[];
+  /** Natural acknowledgment opener shown before generating */
+  acknowledgment?: string | null;
+  /** Whether live web sources were fetched for this response */
+  webResearchUsed?: boolean;
+  /** Web sources consulted during research */
+  webSources?: WebSourceResult[];
+  /** Facts confirmed by 2+ independent web sources */
+  webCrossCheckedFacts?: string[];
+  /** Project-aligned patterns adapted from web sources (never raw copy-paste) */
+  webAdaptedPatterns?: string[];
+  /** Chat management operation performed: reset_chat | delete_last | delete_message | new_session */
+  chatOperation?: string | null;
+  /** Server-side session turn ID for the user message in this exchange */
+  userTurnId?: string | null;
+  /** Server-side session turn ID for the agent message in this exchange */
+  agentTurnId?: string | null;
 }
 
 export interface OutputFile {
@@ -72,6 +307,10 @@ export interface OutputFile {
   pageType: string;
   createdAt: string;
   size: number;
+  /** Packaged project slug for downloading */
+  projectSlug?: string | null;
+  /** URL to download the full project ZIP */
+  downloadUrl?: string | null;
 }
 
 export interface OutputList {
@@ -125,7 +364,106 @@ export interface TemplateList {
   templates: Template[];
 }
 
+export interface ExtractRequest {
+  /** The URL to extract */
+  url: string;
+  /** Wait for network to be idle before extracting */
+  waitForNetworkIdle?: boolean;
+  /** Allow JavaScript execution for full render */
+  executeJs?: boolean;
+}
+
+export type ExtractAssetType =
+  (typeof ExtractAssetType)[keyof typeof ExtractAssetType];
+
+export const ExtractAssetType = {
+  css: "css",
+  js: "js",
+  image: "image",
+  font: "font",
+  other: "other",
+} as const;
+
+export interface ExtractAsset {
+  originalUrl: string;
+  localPath: string;
+  type: ExtractAssetType;
+  sizeBytes: number;
+  downloaded: boolean;
+}
+
+export type ExtractJobStatus =
+  (typeof ExtractJobStatus)[keyof typeof ExtractJobStatus];
+
+export const ExtractJobStatus = {
+  running: "running",
+  success: "success",
+  partial: "partial",
+  error: "error",
+} as const;
+
+export type ExtractJobStats = {
+  totalAssets: number;
+  downloaded: number;
+  failed: number;
+  htmlSize: number;
+};
+
+export interface ExtractJob {
+  jobId: string;
+  url: string;
+  status: ExtractJobStatus;
+  message: string;
+  timestamp: string;
+  /** URL path to preview the extracted page */
+  previewPath?: string | null;
+  outputDir?: string | null;
+  assets: ExtractAsset[];
+  stats: ExtractJobStats;
+}
+
+export interface ExtractJobList {
+  extractions: ExtractJob[];
+}
+
+export type ImageToPageResultResponseMode =
+  (typeof ImageToPageResultResponseMode)[keyof typeof ImageToPageResultResponseMode];
+
+export const ImageToPageResultResponseMode = {
+  generate: "generate",
+  clarify: "clarify",
+} as const;
+
+export interface ImageToPageResult {
+  responseMode: ImageToPageResultResponseMode;
+  agentMessage?: string | null;
+  clarificationQuestion?: string | null;
+  quickReplies?: string[];
+  sessionId?: string | null;
+  imageUploadId?: string | null;
+  projectSlug?: string | null;
+  downloadUrl?: string | null;
+  pageType?: string | null;
+  colorScheme?: string | null;
+  confidence?: number | null;
+  detectedElements?: string[];
+  description?: string | null;
+  title?: string | null;
+  fileCount?: number | null;
+  files?: string[];
+}
+
 export interface ErrorResponse {
   error: string;
   details?: string | null;
 }
+
+export type ImageToPageBody = {
+  /** Image file (PNG, JPG, WebP, GIF — max 10 MB) */
+  image: Blob;
+  /** Optional description to guide generation */
+  description?: string;
+  sessionId?: string | null;
+  /** Override page type (used after clarification) */
+  pageType?: string;
+};

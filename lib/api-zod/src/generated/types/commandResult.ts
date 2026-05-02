@@ -5,9 +5,15 @@
  * AI Web Agent API
  * OpenAPI spec version: 0.1.0
  */
+import type { CommandResultConversationIntent } from "./commandResultConversationIntent";
 import type { CommandResultDetectedMode } from "./commandResultDetectedMode";
+import type { CommandResultResponseMode } from "./commandResultResponseMode";
 import type { CommandResultStatus } from "./commandResultStatus";
+import type { ConfidenceResult } from "./confidenceResult";
+import type { ConversationSession } from "./conversationSession";
 import type { TaskStep } from "./taskStep";
+import type { ValidationReport } from "./validationReport";
+import type { WebSourceResult } from "./webSourceResult";
 
 export interface CommandResult {
   jobId: string;
@@ -21,5 +27,44 @@ export interface CommandResult {
   tasks: TaskStep[];
   /** Generated output filename */
   outputFile?: string | null;
+  /** Packaged project slug (used for ZIP download) */
+  projectSlug?: string | null;
+  /** URL to download the full runnable project as a ZIP */
+  downloadUrl?: string | null;
   message: string;
+  validationReport?: ValidationReport | null;
+  confidenceResult?: ConfidenceResult | null;
+  /** Whether the output was regenerated after a low confidence score */
+  regenerated: boolean;
+  /** Session ID for conversation continuity */
+  sessionId: string;
+  /** Detected intent of this turn relative to the session */
+  conversationIntent: CommandResultConversationIntent;
+  /** Human-readable agent response for the chat UI */
+  agentMessage: string;
+  /** Suggested follow-up questions for the user */
+  followUpQuestions: string[];
+  session: ConversationSession;
+  /** generate = full output produced, clarify = asking user a question, acknowledge = confirming before generating */
+  responseMode: CommandResultResponseMode;
+  /** The single clarification question to ask the user */
+  clarificationQuestion?: string | null;
+  /** Tap-to-send quick reply chip suggestions */
+  quickReplies: string[];
+  /** Natural acknowledgment opener shown before generating */
+  acknowledgment?: string | null;
+  /** Whether live web sources were fetched for this response */
+  webResearchUsed?: boolean;
+  /** Web sources consulted during research */
+  webSources?: WebSourceResult[];
+  /** Facts confirmed by 2+ independent web sources */
+  webCrossCheckedFacts?: string[];
+  /** Project-aligned patterns adapted from web sources (never raw copy-paste) */
+  webAdaptedPatterns?: string[];
+  /** Chat management operation performed: reset_chat | delete_last | delete_message | new_session */
+  chatOperation?: string | null;
+  /** Server-side session turn ID for the user message in this exchange */
+  userTurnId?: string | null;
+  /** Server-side session turn ID for the agent message in this exchange */
+  agentTurnId?: string | null;
 }

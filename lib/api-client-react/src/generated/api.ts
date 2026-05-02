@@ -21,9 +21,15 @@ import type {
   CommandHistory,
   CommandRequest,
   CommandResult,
+  ConversationSession,
   ErrorResponse,
+  ExtractJob,
+  ExtractJobList,
+  ExtractRequest,
   FileContent,
   HealthStatus,
+  ImageToPageBody,
+  ImageToPageResult,
   OutputList,
   TemplateList,
 } from "./api.schemas";
@@ -201,6 +207,107 @@ export const useProcessCommand = <
 };
 
 /**
+ * Accepts a multipart image upload, analyzes layout with AI vision, and generates a complete multi-file project
+ * @summary Convert an uploaded image to a structured webpage
+ */
+export const getImageToPageUrl = () => {
+  return `/api/agent/image-to-page`;
+};
+
+export const imageToPage = async (
+  imageToPageBody: ImageToPageBody,
+  options?: RequestInit,
+): Promise<ImageToPageResult> => {
+  const formData = new FormData();
+  formData.append(`image`, imageToPageBody.image);
+  if (imageToPageBody.description !== undefined) {
+    formData.append(`description`, imageToPageBody.description);
+  }
+  if (
+    imageToPageBody.sessionId !== undefined &&
+    imageToPageBody.sessionId !== null
+  ) {
+    formData.append(`sessionId`, imageToPageBody.sessionId);
+  }
+  if (imageToPageBody.pageType !== undefined) {
+    formData.append(`pageType`, imageToPageBody.pageType);
+  }
+
+  return customFetch<ImageToPageResult>(getImageToPageUrl(), {
+    ...options,
+    method: "POST",
+    body: formData,
+  });
+};
+
+export const getImageToPageMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof imageToPage>>,
+    TError,
+    { data: BodyType<ImageToPageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof imageToPage>>,
+  TError,
+  { data: BodyType<ImageToPageBody> },
+  TContext
+> => {
+  const mutationKey = ["imageToPage"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof imageToPage>>,
+    { data: BodyType<ImageToPageBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return imageToPage(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ImageToPageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof imageToPage>>
+>;
+export type ImageToPageMutationBody = BodyType<ImageToPageBody>;
+export type ImageToPageMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Convert an uploaded image to a structured webpage
+ */
+export const useImageToPage = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof imageToPage>>,
+    TError,
+    { data: BodyType<ImageToPageBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof imageToPage>>,
+  TError,
+  { data: BodyType<ImageToPageBody> },
+  TContext
+> => {
+  return useMutation(getImageToPageMutationOptions(options));
+};
+
+/**
  * @summary List all generated output files
  */
 export const getListOutputsUrl = () => {
@@ -363,6 +470,94 @@ export function usePreviewOutput<
 }
 
 /**
+ * @summary Download a generated project as a ZIP file
+ */
+export const getDownloadProjectUrl = (zipFilename: string) => {
+  return `/api/agent/download/${zipFilename}`;
+};
+
+export const downloadProject = async (
+  zipFilename: string,
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getDownloadProjectUrl(zipFilename), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getDownloadProjectQueryKey = (zipFilename: string) => {
+  return [`/api/agent/download/${zipFilename}`] as const;
+};
+
+export const getDownloadProjectQueryOptions = <
+  TData = Awaited<ReturnType<typeof downloadProject>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  zipFilename: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof downloadProject>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getDownloadProjectQueryKey(zipFilename);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadProject>>> = ({
+    signal,
+  }) => downloadProject(zipFilename, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!zipFilename,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof downloadProject>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type DownloadProjectQueryResult = NonNullable<
+  Awaited<ReturnType<typeof downloadProject>>
+>;
+export type DownloadProjectQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Download a generated project as a ZIP file
+ */
+
+export function useDownloadProject<
+  TData = Awaited<ReturnType<typeof downloadProject>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  zipFilename: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof downloadProject>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getDownloadProjectQueryOptions(zipFilename, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Get current agent system status
  */
 export const getGetAgentStatusUrl = () => {
@@ -513,6 +708,177 @@ export function useGetCommandHistory<
 }
 
 /**
+ * @summary Get conversation session state
+ */
+export const getGetSessionUrl = (sessionId: string) => {
+  return `/api/agent/session/${sessionId}`;
+};
+
+export const getSession = async (
+  sessionId: string,
+  options?: RequestInit,
+): Promise<ConversationSession> => {
+  return customFetch<ConversationSession>(getGetSessionUrl(sessionId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSessionQueryKey = (sessionId: string) => {
+  return [`/api/agent/session/${sessionId}`] as const;
+};
+
+export const getGetSessionQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSession>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  sessionId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSession>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetSessionQueryKey(sessionId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getSession>>> = ({
+    signal,
+  }) => getSession(sessionId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!sessionId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSession>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSessionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSession>>
+>;
+export type GetSessionQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get conversation session state
+ */
+
+export function useGetSession<
+  TData = Awaited<ReturnType<typeof getSession>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  sessionId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSession>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSessionQueryOptions(sessionId, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Reset a conversation session to start a new task
+ */
+export const getResetSessionUrl = (sessionId: string) => {
+  return `/api/agent/session/${sessionId}/reset`;
+};
+
+export const resetSession = async (
+  sessionId: string,
+  options?: RequestInit,
+): Promise<ConversationSession> => {
+  return customFetch<ConversationSession>(getResetSessionUrl(sessionId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getResetSessionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetSession>>,
+    TError,
+    { sessionId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resetSession>>,
+  TError,
+  { sessionId: string },
+  TContext
+> => {
+  const mutationKey = ["resetSession"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resetSession>>,
+    { sessionId: string }
+  > = (props) => {
+    const { sessionId } = props ?? {};
+
+    return resetSession(sessionId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResetSessionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resetSession>>
+>;
+
+export type ResetSessionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Reset a conversation session to start a new task
+ */
+export const useResetSession = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resetSession>>,
+    TError,
+    { sessionId: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resetSession>>,
+  TError,
+  { sessionId: string },
+  TContext
+> => {
+  return useMutation(getResetSessionMutationOptions(options));
+};
+
+/**
  * @summary List available page templates
  */
 export const getListTemplatesUrl = () => {
@@ -579,6 +945,254 @@ export function useListTemplates<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListTemplatesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Start a full-page extraction job
+ */
+export const getStartExtractionUrl = () => {
+  return `/api/agent/extract`;
+};
+
+export const startExtraction = async (
+  extractRequest: ExtractRequest,
+  options?: RequestInit,
+): Promise<ExtractJob> => {
+  return customFetch<ExtractJob>(getStartExtractionUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(extractRequest),
+  });
+};
+
+export const getStartExtractionMutationOptions = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startExtraction>>,
+    TError,
+    { data: BodyType<ExtractRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof startExtraction>>,
+  TError,
+  { data: BodyType<ExtractRequest> },
+  TContext
+> => {
+  const mutationKey = ["startExtraction"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof startExtraction>>,
+    { data: BodyType<ExtractRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return startExtraction(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type StartExtractionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof startExtraction>>
+>;
+export type StartExtractionMutationBody = BodyType<ExtractRequest>;
+export type StartExtractionMutationError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Start a full-page extraction job
+ */
+export const useStartExtraction = <
+  TError = ErrorType<ErrorResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof startExtraction>>,
+    TError,
+    { data: BodyType<ExtractRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof startExtraction>>,
+  TError,
+  { data: BodyType<ExtractRequest> },
+  TContext
+> => {
+  return useMutation(getStartExtractionMutationOptions(options));
+};
+
+/**
+ * @summary List all past extraction jobs
+ */
+export const getListExtractionsUrl = () => {
+  return `/api/agent/extracts`;
+};
+
+export const listExtractions = async (
+  options?: RequestInit,
+): Promise<ExtractJobList> => {
+  return customFetch<ExtractJobList>(getListExtractionsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListExtractionsQueryKey = () => {
+  return [`/api/agent/extracts`] as const;
+};
+
+export const getListExtractionsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listExtractions>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listExtractions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListExtractionsQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listExtractions>>> = ({
+    signal,
+  }) => listExtractions({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listExtractions>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListExtractionsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listExtractions>>
+>;
+export type ListExtractionsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List all past extraction jobs
+ */
+
+export function useListExtractions<
+  TData = Awaited<ReturnType<typeof listExtractions>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listExtractions>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListExtractionsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Get a single extraction job by ID
+ */
+export const getGetExtractionUrl = (jobId: string) => {
+  return `/api/agent/extracts/${jobId}`;
+};
+
+export const getExtraction = async (
+  jobId: string,
+  options?: RequestInit,
+): Promise<ExtractJob> => {
+  return customFetch<ExtractJob>(getGetExtractionUrl(jobId), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetExtractionQueryKey = (jobId: string) => {
+  return [`/api/agent/extracts/${jobId}`] as const;
+};
+
+export const getGetExtractionQueryOptions = <
+  TData = Awaited<ReturnType<typeof getExtraction>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  jobId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getExtraction>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetExtractionQueryKey(jobId);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getExtraction>>> = ({
+    signal,
+  }) => getExtraction(jobId, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!jobId,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getExtraction>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetExtractionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getExtraction>>
+>;
+export type GetExtractionQueryError = ErrorType<ErrorResponse>;
+
+/**
+ * @summary Get a single extraction job by ID
+ */
+
+export function useGetExtraction<
+  TData = Awaited<ReturnType<typeof getExtraction>>,
+  TError = ErrorType<ErrorResponse>,
+>(
+  jobId: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getExtraction>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetExtractionQueryOptions(jobId, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

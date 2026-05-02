@@ -9,6 +9,8 @@ import Outputs from "@/pages/Outputs";
 import Preview from "@/pages/Preview";
 import Templates from "@/pages/Templates";
 import History from "@/pages/History";
+import Extract from "@/pages/Extract";
+import ImageToPage from "@/pages/ImageToPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,6 +30,8 @@ function Router() {
         <Route path="/preview" component={Preview} />
         <Route path="/templates" component={Templates} />
         <Route path="/history" component={History} />
+        <Route path="/extract" component={Extract} />
+        <Route path="/image-to-page" component={ImageToPage} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>
